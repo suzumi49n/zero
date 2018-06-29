@@ -11,5 +11,5 @@ $ . venv/bin/activate
 
 ```sh
 $ pip install -r requirements.txt
-$ python core/blockchain.py
+$ python core/blockchain.py [port]
 ```

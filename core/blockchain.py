@@ -2,6 +2,7 @@ from hashlib import sha256
 import sys
 import json
 
+from urllib.parse import urlparse
 from uuid import uuid4
 from time import time
 from transaction import Transaction
@@ -13,7 +14,7 @@ from merkletools import MerkleTools
 # ブロックの生成時間間隔(秒)
 SECONDS_PER_BLOCK = 15
 # ブロックハッシュ値の先頭桁数の指定
-TARGET_NONCE_ZERO_DIGIT = 6
+TARGET_NONCE_ZERO_DIGIT = 5
 
 class Blockchain:
 
@@ -21,6 +22,8 @@ class Blockchain:
     def __init__(self):
         self.current_transactions = []
         self.chain = []
+        # ノードリスト
+        self.nodes = set()
 
         self.new_block(txs = self.current_transactions, prev_hash = 1)
 
@@ -32,6 +35,64 @@ class Blockchain:
             nonce += 1
 
         return nonce
+
+    def register_node(self, address):
+        parsed_url = urlparse(address)
+        self.nodes.add(parsed_url.netloc)
+
+    def valid_chain(self, chain):
+        """
+        ブロックチェーンがが正しいか確認する
+
+        :param chain: <list> ブロックチェーン
+        """
+        last_block = chain[0]
+        current_index = 1
+
+        while current_index < len(chain):
+            block = chain[current_index]
+
+            # ブロックのハッシュが正しいか
+            if block['prev_hash'] != self.hash(last_block)
+                return False
+
+            # nonceが正しいか
+            if not self.is_valid_nonce(last_block['nonce'], block['nonce']):
+                return False
+
+            last_block = block
+            current_index += 1
+
+        return True
+
+    def resolve_conflicts(self):
+        """
+        ネットワークで最も長いチェーンを採用する
+        TODO: ブロードキャストされたチェーンを検証し、それを正にする処理に変更する
+        """
+        neighbours = self.nodes
+        new_chain = None
+
+        max_length = len(self.chain)
+
+        for node in neighbours:
+            res = request.get(f'http://{node}/chain')
+
+            if res.status_code = 200:
+                length = res.json()['length']
+                chain = res.json()['chain']
+
+                # チェーンが有効かつ最も長いかを確認
+                if length > max_length and self.valid_chain(chain):
+                    max_length = length
+                    new_chain = chain
+
+        # 自分のチェーンより長く、かつ有効なチェーンだった場合そのチェーンを採用する
+        if new_chain:
+            self.chain = new_chain
+            return True
+
+        return False
 
     @staticmethod
     def is_valid_nonce(prev_hash, merkle_root, nonce):
@@ -131,7 +192,7 @@ def new_transactions():
 @app.route('/chain', methods=['GET'])
 def chain():
     res = {
-       'chains': blockchain.chain,
+       'chain': blockchain.chain,
        'length': len(blockchain.chain) 
     }
     return jsonify(res), 200
@@ -161,6 +222,42 @@ def mining():
 
     res = {'message': 'ブロックが採掘されました'}
     return jsonify(res), 200
+
+# ノードの登録
+@app.route('/nodes/register', methods=['POST'])
+def register_node():
+    values = request.get_json()
+
+    nodes = values.get('nodes')
+    if nodes is None:
+        return "Error: 有効ではないノードのリストです", 400
+
+    for node in nodes:
+        blockchain.register_node(node)
+
+    response = {
+        'message': '新しいノードが追加されました',
+        'total_nodes': list(blockchain.nodes),
+    }
+    return jsonify(response), 201
+
+# 最長チェーンの同期
+@app.route('/nodes/resolve', methods=['GET'])
+def consensus():
+    replaced = blockchain.resolve_conflicts()
+
+    if replaced:
+        response = {
+            'message': 'チェーンが置き換えられました',
+            'new_chain': blockchain.chain
+        }
+    else:
+        response = {
+            'message': 'チェーンが確認されました',
+            'chain': blockchain.chain
+        }
+
+    return jsonify(response), 200
 
 if __name__ == '__main__':
     port = args[1]
