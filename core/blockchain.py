@@ -1,6 +1,7 @@
 from hashlib import sha256
 import sys
 import json
+import requests
 
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -53,12 +54,12 @@ class Blockchain:
             block = chain[current_index]
 
             # ブロックのハッシュが正しいか
-            if block['prev_hash'] != self.hash(last_block)
+            if block['prev_hash'] != self.hash(last_block):
                 return False
 
             # nonceが正しいか
-            if not self.is_valid_nonce(last_block['nonce'], block['nonce']):
-                return False
+            # if not self.is_valid_nonce(last_block['nonce'], block['nonce']):
+            #     return False
 
             last_block = block
             current_index += 1
@@ -76,9 +77,9 @@ class Blockchain:
         max_length = len(self.chain)
 
         for node in neighbours:
-            res = request.get(f'http://{node}/chain')
+            res = requests.get(f'http://{node}/chain')
 
-            if res.status_code = 200:
+            if res.status_code == 200:
                 length = res.json()['length']
                 chain = res.json()['chain']
 
@@ -96,6 +97,12 @@ class Blockchain:
 
     @staticmethod
     def is_valid_nonce(prev_hash, merkle_root, nonce):
+        """
+        ブロックハッシュが正しくなるnonceか
+        :param prev_hash: 前のブロックのハッシュ
+        :param merkle_root: トランザクションのマークルルート
+        :param nonce: 求める値
+        """
         guess = f'{prev_hash}{merkle_root}{nonce}'.encode()
         guess_hash = sha256(guess).hexdigest()
         
