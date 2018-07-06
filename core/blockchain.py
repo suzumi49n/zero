@@ -6,8 +6,10 @@ import requests
 from urllib.parse import urlparse
 from uuid import uuid4
 from time import time
-from transaction import Transaction
-from block import Block, BlockJSONEncoder
+# from core.transaction import Transaction
+from network.zeronode import ZeroNodeClient
+# from core.block import Block, BlockJSONEncoder
+from twisted.internet import reactor
 
 from flask import Flask, jsonify, request
 from merkletools import MerkleTools
@@ -17,16 +19,21 @@ SECONDS_PER_BLOCK = 15
 # ブロックハッシュ値の先頭桁数の指定
 TARGET_NONCE_ZERO_DIGIT = 5
 
+
 class Blockchain:
 
     # ジェネシスブロック生成
     def __init__(self):
+        # reactor.connectTCP('127.0.0.1', 4001, ZeroNodeClient())
+        # reactor.run()
+
         self.current_transactions = []
         self.chain = []
         # ノードリスト
         self.nodes = set()
 
-        self.new_block(txs = self.current_transactions, prev_hash = 1)
+        self.new_block(txs=self.current_transactions, prev_hash=1)
+
 
         print(self.chain)
 
@@ -105,7 +112,7 @@ class Blockchain:
         """
         guess = f'{prev_hash}{merkle_root}{nonce}'.encode()
         guess_hash = sha256(guess).hexdigest()
-        
+
         return guess_hash[:TARGET_NONCE_ZERO_DIGIT] == ''.zfill(TARGET_NONCE_ZERO_DIGIT)
 
     @staticmethod
@@ -116,7 +123,6 @@ class Blockchain:
         block_string = json.dumps(block, sort_keys=True).encode()
         return sha256(block_string).hexdigest()
 
-
     def new_block(self, txs, prev_hash=None):
         """
         新しいブロックの生成
@@ -124,9 +130,9 @@ class Blockchain:
         nonce = 0
         mt = MerkleTools()
         mt.add_leaf(txs, True)
-        print(mt.get_leaf_count()) #トランザクションの数
+        print(mt.get_leaf_count())  # トランザクションの数
 
-        mt.make_tree() # マークルツリーの生成
+        mt.make_tree()  # マークルツリーの生成
 
         if not self.chain:
             nonce = 1
@@ -136,8 +142,8 @@ class Blockchain:
             nonce = self.find_nonce(
                 sha256(block_buffer).hexdigest(),
                 mt.get_merkle_root()
-            ) # Nonceを見つける
-        
+            )  # Nonceを見つける
+
         block = {
             'prev_hash': prev_hash,
             'height': len(self.chain),
@@ -161,112 +167,14 @@ class Blockchain:
             'input': input,
             'output': output,
             'amount': amount
-            }
-            
+        }
+
         hashedTx = sha256(json.dumps(rawTx).encode()).hexdigest()
         self.current_transactions.append(hashedTx)
         print(f'NewTransaction={self.current_transactions}')
-        
+
     def last_block(self):
         return self.chain[-1]
 
     # def run(self):
     #     self.new_transaction('hoge', 'foo', 1000)
-
-args = sys.argv
-app = Flask(__name__)
-app.config['JSON_AS_ASCII'] = False
-this_node_id = str(uuid4()).replace('-', '')
-
-blockchain = Blockchain()
-
-# トランザクションの追加
-@app.route('/transactions/new', methods=['POST'])
-def new_transactions():
-    payload = request.get_json()
-    required = ['input', 'output', 'amount']
-
-    if not all(key in payload for key in required):
-        return 'Missing payloads', 400
-
-    blockchain.new_transaction(payload['input'], payload['output'], payload['amount'])
-
-    res = {'message': 'トランザクションがブロックに追加されました'}
-
-    return jsonify(res), 200
-
-# フルブロックを取得する
-@app.route('/chain', methods=['GET'])
-def chain():
-    res = {
-       'chain': blockchain.chain,
-       'length': len(blockchain.chain) 
-    }
-    return jsonify(res), 200
-
-# 今のトランザクションプールを取得
-@app.route('/tx_pool', methods=['GET'])
-def tx_pool():
-    res = {
-        'tx_pool': blockchain.current_transactions
-    }
-    return jsonify(res), 200
-
-# マイニング
-@app.route('/mine', methods=['GET'])
-def mining():
-    last_block = blockchain.last_block()
-    
-    # マイニング競争に勝ったユーザーに対するインセンティブ
-    # マイニング報酬を表すためにinputは0にする
-    blockchain.new_transaction(
-        input = "0",
-        output = this_node_id,
-        amount = 100
-    )
-    
-    blockchain.new_block(blockchain.current_transactions, blockchain.hash(last_block))
-
-    res = {'message': 'ブロックが採掘されました'}
-    return jsonify(res), 200
-
-# ノードの登録
-@app.route('/nodes/register', methods=['POST'])
-def register_node():
-    values = request.get_json()
-
-    nodes = values.get('nodes')
-    if nodes is None:
-        return "Error: 有効ではないノードのリストです", 400
-
-    for node in nodes:
-        blockchain.register_node(node)
-
-    response = {
-        'message': '新しいノードが追加されました',
-        'total_nodes': list(blockchain.nodes),
-    }
-    return jsonify(response), 201
-
-# 最長チェーンの同期
-@app.route('/nodes/resolve', methods=['GET'])
-def consensus():
-    replaced = blockchain.resolve_conflicts()
-
-    if replaced:
-        response = {
-            'message': 'チェーンが置き換えられました',
-            'new_chain': blockchain.chain
-        }
-    else:
-        response = {
-            'message': 'チェーンが確認されました',
-            'chain': blockchain.chain
-        }
-
-    return jsonify(response), 200
-
-if __name__ == '__main__':
-    port = args[1]
-    app.run(host="0.0.0.0", port=port)
-    # Blockchain()
