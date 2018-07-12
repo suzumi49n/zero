@@ -67,11 +67,17 @@ class ZeroNode:
     def setup_connection(self, host, port):
         if len(self.Peers) < config.CONNECTED_MAX_PEER:
             reactor.connectTCP(host, int(port), ZeroNodeClient())
+            print('### 繋がった')
 
     def start(self):
         start_delay = 0
-        reactor.callLater(start_delay, self.setup_connection, '127.0.0.1', '8080')
+        print('#### start()')
+        reactor.callLater(start_delay, self.setup_connection, '0.0.0.0', '8080')
 
     def shutdown(self):
         for p in self.Peers:
             p.disconnect()
+
+    def send(self):
+        for p in self.Peers:
+            p.send_message('こんにちは')

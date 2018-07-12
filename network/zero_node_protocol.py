@@ -1,4 +1,5 @@
 import logging
+import binascii
 from twisted.internet.protocol import Protocol
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ class ZeroProtocol(Protocol):
 
     def connectionMade(self):
         """
+        接続が確立したときに呼び出される
         このノードにつながっているリモートノードの情報を取得
         :return:
         """
@@ -33,3 +35,8 @@ class ZeroProtocol(Protocol):
     def dlog(self, msg):
         print(f'[{self.node_id}] {self.node_id} - {msg}')
         # logger.debug('[%s] %s - %s' % (self.node_id, self.endpoint, msg))
+
+    def send_message(self, data):
+        # msg = binascii.b2a_hex(data.encode('utf-8'))
+        # ba = binascii.unhexlify(msg)
+        self.transport.write(data)

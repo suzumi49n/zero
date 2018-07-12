@@ -38,6 +38,7 @@ def main():
         endpoints.serverFromString(reactor, endpoint_rest).listen(Site(api_server_rest.app.resource()))
         # reactor.listenTCP(int(args.port_rest), Site(api_server_rest.app.resource()))
 
+    ZeroNode.Instance().send()
     reactor.run()
 
     ZeroNode.Instance().shutdown()
