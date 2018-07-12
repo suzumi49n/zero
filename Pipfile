@@ -1,0 +1,18 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[scripts]
+start = "python api_server.py"
+
+[packages]
+twisted = "*"
+klein = "*"
+requests = "*"
+merkletools = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.6"

@@ -1,7 +1,10 @@
 import logging
+import random
 from twisted.internet.protocol import ReconnectingClientFactory
+from twisted.internet import reactor
 
 from network.zero_node_protocol import ZeroProtocol
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +17,7 @@ class ZeroNodeClient(ReconnectingClientFactory):
         """
         Protocolクラスのインスタンス生成
         """
-        logging.info(u'Successfully connected to %s' % addr)
+        print(f'Successfully connected to {addr}')
 
         self.resetDelay()  # retry delayを元に戻す
 
@@ -26,18 +29,49 @@ class ZeroNodeClient(ReconnectingClientFactory):
         """
         接続後に呼び出される
         """
-        logger.info(u'Started to connect.')
+        print('Started to connect.')
+        # logger.info(u'Started to connect.')
 
     def clientConnectionLost(self, connector, reason):
         """
         接続を失った際のハンドラ
         """
-        logger.warning(u'Lost connection. Reason: %s', reason)
+        print(f'Lost connection. Reason: {reason}')
+        # logger.warning(u'Lost connection. Reason: %s', reason)
         ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
         """
         接続に失敗した際のハンドラ
         """
-        logger.error(u'Connection failed. Reason: %s' % reason)
+        print(f'Connection failed. Reason: {reason}')
+        # logger.error(u'Connection failed. Reason: %s' % reason)
         ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
+
+
+class ZeroNode:
+    Peers = []
+    __LEAD = None
+    node_id = None
+
+    @staticmethod
+    def Instance():
+        if ZeroNode.__LEAD is None:
+            ZeroNode.__LEAD = ZeroNode()
+        return ZeroNode.__LEAD
+
+    def setup(self):
+        self.Peers = []
+        self.node_id = random.randint(1294967200, 4294967200)
+
+    def setup_connection(self, host, port):
+        if len(self.Peers) < config.CONNECTED_MAX_PEER:
+            reactor.connectTCP(host, int(port), ZeroNodeClient())
+
+    def start(self):
+        start_delay = 0
+        reactor.callLater(start_delay, self.setup_connection, '127.0.0.1', '8080')
+
+    def shutdown(self):
+        for p in self.Peers:
+            p.disconnect()

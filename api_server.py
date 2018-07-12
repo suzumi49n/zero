@@ -4,6 +4,7 @@ import logging
 from twisted.internet import reactor, endpoints
 from twisted.web.server import Site
 
+from network.zeronode import ZeroNode
 from api.REST.rest_api import RestApi
 
 logger = logging.getLogger(__name__)
@@ -20,20 +21,26 @@ def main():
     parser.add_argument("--host", action="store", type=str, help="Hostname (for example 127.0.0.1)", default="0.0.0.0")
     args = parser.parse_args()
 
+    # Setup twisted reactor
+    reactor.suggestThreadPoolSize(15)
+    ZeroNode.Instance().start()
+
     if not args.port_rpc and not args.port_rest:
         print("Error: specify at least one of --port-rpc / --port-rest")
         parser.print_help()
         return
 
-    reactor.suggestThreadPoolSize(15)
-
     if args.port_rest:
-        logger.info("Starting REST api server on http://%s:%s" % (args.host, args.port_rest))
+        print(f'Starting REST api server on http://{args.host}:{args.port_rest}')
+        # logger.info("Starting REST api server on http://%s:%s" % (args.host, args.port_rest))
         api_server_rest = RestApi()
         endpoint_rest = 'tcp:port={0}:interface={1}'.format(args.port_rest, args.host)
         endpoints.serverFromString(reactor, endpoint_rest).listen(Site(api_server_rest.app.resource()))
+        # reactor.listenTCP(int(args.port_rest), Site(api_server_rest.app.resource()))
 
     reactor.run()
+
+    ZeroNode.Instance().shutdown()
 
 
 if __name__ == "__main__":
