@@ -60,6 +60,9 @@ class ZeroNode:
             ZeroNode.__LEAD = ZeroNode()
         return ZeroNode.__LEAD
 
+    def __init__(self):
+        self.setup()
+
     def setup(self):
         self.Peers = []
         self.node_id = random.randint(1294967200, 4294967200)
@@ -72,7 +75,13 @@ class ZeroNode:
     def start(self):
         start_delay = 0
         print('#### start()')
-        reactor.callLater(start_delay, self.setup_connection, '0.0.0.0', '8080')
+        for bootstrap in config.SEED_LIST:
+            host, port = bootstrap.split(':')
+            reactor.callLater(start_delay, self.setup_connection, host, port)
+            start_delay += 1
+
+    def start_server(self, port):
+        reactor.listenTCP(port, ZeroNodeClient())
 
     def shutdown(self):
         for p in self.Peers:

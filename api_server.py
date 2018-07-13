@@ -4,8 +4,9 @@ import logging
 from twisted.internet import reactor, endpoints
 from twisted.web.server import Site
 
-from network.zeronode import ZeroNode
+from network.zeronode import ZeroNode, ZeroNodeClient
 from api.REST.rest_api import RestApi
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +18,13 @@ def main():
     group_modes = parser.add_argument_group(title="Mode(s)")
     group_modes.add_argument("--port-rpc", type=int, help="port to use for the json-rpc api (eg. 10332)")
     group_modes.add_argument("--port-rest", type=int, help="port to use for the rest api (eg. 80)")
+    group_modes.add_argument("--port-tcp", type=int, help="port to use for the TCP (eg. 10082)")
 
     parser.add_argument("--host", action="store", type=str, help="Hostname (for example 127.0.0.1)", default="0.0.0.0")
     args = parser.parse_args()
+
+    # Setup network config
+    config.setup_mainnet()
 
     # Setup twisted reactor
     reactor.suggestThreadPoolSize(15)
@@ -38,7 +43,10 @@ def main():
         endpoints.serverFromString(reactor, endpoint_rest).listen(Site(api_server_rest.app.resource()))
         # reactor.listenTCP(int(args.port_rest), Site(api_server_rest.app.resource()))
 
-    ZeroNode.Instance().send()
+
+    # ZeroNode.Instance().send()
+    # TCP server
+    reactor.listenTCP(int(args.port_tcp), ZeroNodeClient())
     reactor.run()
 
     ZeroNode.Instance().shutdown()
