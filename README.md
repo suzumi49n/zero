@@ -11,5 +11,5 @@ $ . venv/bin/activate
 
 ```sh
 $ pip install -r requirements.txt
-$ python core/blockchain.py [port]
+$ python api_server.py --port-rest 8081 --port-tcp 10081
 ```

@@ -51,6 +51,7 @@ class ZeroNodeClient(ReconnectingClientFactory):
 
 class ZeroNode:
     Peers = []
+    ADDR = []
     __LEAD = None
     node_id = None
 
@@ -65,7 +66,17 @@ class ZeroNode:
 
     def setup(self):
         self.Peers = []
+        self.ADDR = []
         self.node_id = random.randint(1294967200, 4294967200)
+
+    def add_connected_peer(self, peer):
+        if peer not in self.Peers:
+            if len(self.Peers) < config.CONNECTED_MAX_PEER:
+                self.Peers.append(peer)
+            else:
+                if peer.Address in self.ADDR:
+                    self.ADDR.remove(peer.Address)
+                peer.disconnect()
 
     def setup_connection(self, host, port):
         if len(self.Peers) < config.CONNECTED_MAX_PEER:
@@ -77,8 +88,15 @@ class ZeroNode:
         print('#### start()')
         for bootstrap in config.SEED_LIST:
             host, port = bootstrap.split(':')
+            self.ADDR.append('%s:%s' % (host, port))
             reactor.callLater(start_delay, self.setup_connection, host, port)
             start_delay += 1
+
+    def remote_node_peer_received(self, host, port, index):
+        addr = '%s:%s' % (host, port)
+        if addr not in self.ADDRS and len(self.Peers) < config.CONNECTED_PEER_MAX:
+            self.ADDRS.append(addr)
+            reactor.callLater(index * 10, self.SetupConnection, host, port)
 
     def start_server(self, port):
         reactor.listenTCP(port, ZeroNodeClient())
